@@ -5,18 +5,19 @@ namespace Koderoff\EnqueueExtraBundle\Extension;
 use Enqueue\Consumption\Context\End;
 use Enqueue\Consumption\Context\MessageResult;
 use Enqueue\Consumption\Context\PostConsume;
+use Enqueue\Consumption\Context\Start;
 use Enqueue\Consumption\EndExtensionInterface;
 use Enqueue\Consumption\MessageResultExtensionInterface;
 use Enqueue\Consumption\PostConsumeExtensionInterface;
+use Enqueue\Consumption\StartExtensionInterface;
 use Enqueue\Consumption\Result;
-use Enqueue\RdKafka\RdKafkaMessage;
-use Interop\Queue\Context;
+use Interop\Queue\Consumer;
 use Interop\Queue\Message;
 
 /**
  * Class CommitRateReducer
  */
-class CommitRateReducer implements MessageResultExtensionInterface, EndExtensionInterface, PostConsumeExtensionInterface
+class CommitRateReducer implements MessageResultExtensionInterface, EndExtensionInterface, PostConsumeExtensionInterface, StartExtensionInterface
 {
     /**
      * @var int
@@ -29,16 +30,29 @@ class CommitRateReducer implements MessageResultExtensionInterface, EndExtension
     private $uncommited;
 
     /**
+     * @var Consumer
+     */
+    private $consumer;
+
+    /**
+     * @param Start $context
+     */
+    public function onStart(Start $context): void
+    {
+        $this->stamp = time();
+    }
+
+    /**
      * @param MessageResult $context
      */
     public function onResult(MessageResult $context): void
     {
-        if ($context->getResult() !== Result::ACK) {
-            return;
+        if (null === $this->consumer) {
+            $this->consumer = $context->getConsumer();
         }
 
-        if (null === $this->stamp) {
-            $this->stamp = time();
+        if ($context->getResult() !== Result::ACK) {
+            return;
         }
 
         if ($this->stamp === time()) {
@@ -61,7 +75,7 @@ class CommitRateReducer implements MessageResultExtensionInterface, EndExtension
             return;
         }
 
-        $this->commit($context->getContext(), $this->uncommited);
+        $this->commit($this->uncommited);
     }
 
     /**
@@ -73,17 +87,15 @@ class CommitRateReducer implements MessageResultExtensionInterface, EndExtension
             return;
         }
 
-        $this->commit($context->getContext(), $this->uncommited);
+        $this->commit($this->uncommited);
     }
 
     /**
-     * @param Context        $context
-     * @param RdKafkaMessage $message
+     * @param Message $message
      */
-    private function commit(Context $context, Message $message): void
+    private function commit(Message $message): void
     {
-        // TODO: offset should be committed here
-
+        $this->consumer->acknowledge($message);
         $this->uncommited = null;
     }
 }
