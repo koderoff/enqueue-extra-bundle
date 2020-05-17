@@ -4,8 +4,8 @@
     "license": "MIT",
     "require": {
         "php": "^7.2",
-        "enqueue/enqueue-bundle": "^0.9.8",
-        "enqueue/rdkafka": "^0.9.9"
+        "enqueue/enqueue-bundle": "^0.10",
+        "enqueue/rdkafka": "^0.10"
     },
     "autoload": {
         "psr-4": {
